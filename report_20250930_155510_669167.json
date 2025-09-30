@@ -1,0 +1,36 @@
+{
+  "category": "еда",
+  "period": {
+    "start": "2024-01-01",
+    "end": "2024-03-31"
+  },
+  "total_workdays": 8000.0,
+  "total_weekends": 0.0,
+  "daily_details": [
+    {
+      "date": "2024-01-01",
+      "is_workday": true,
+      "amount": 1000
+    },
+    {
+      "date": "2024-01-02",
+      "is_workday": true,
+      "amount": 1500
+    },
+    {
+      "date": "2024-01-03",
+      "is_workday": true,
+      "amount": 2000
+    },
+    {
+      "date": "2024-01-04",
+      "is_workday": true,
+      "amount": 500
+    },
+    {
+      "date": "2024-01-05",
+      "is_workday": true,
+      "amount": 3000
+    }
+  ]
+}
