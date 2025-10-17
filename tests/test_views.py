@@ -3,6 +3,7 @@ import pytest
 from unittest.mock import patch
 
 from src.views import events_view
+import json
 
 
 @pytest.fixture
@@ -18,7 +19,8 @@ def df_events():
 @patch('src.views.fetch_currency_rates', return_value=[{"currency": "USD", "rate": 73.0}])
 @patch('src.views.fetch_stock_prices', return_value=[{"stock": "AAPL", "price": 150.0}])
 def test_events_view_month(mock_stocks, mock_rates, df_events):
-    res = events_view('2024-01-10', 'M', df_events)
+    res_json = events_view('2024-01-10', 'M', df_events)
+    res = json.loads(res_json)
     assert 'expenses' in res and 'income' in res
     assert res['currency_rates'][0]['currency'] == 'USD'
     assert res['stock_prices'][0]['stock'] == 'AAPL'
@@ -30,6 +32,7 @@ def test_events_view_month(mock_stocks, mock_rates, df_events):
 @patch('src.views.fetch_currency_rates', return_value=[])
 @patch('src.views.fetch_stock_prices', return_value=[])
 def test_events_view_scopes(mock_stocks, mock_rates, scope, df_events):
-    res = events_view('2024-01-10', scope, df_events)
+    res_json = events_view('2024-01-10', scope, df_events)
+    res = json.loads(res_json)
     assert 'expenses' in res and 'income' in res
 
