@@ -1,5 +1,6 @@
 import pytest
 from src.services import SearchService, investment_bank
+import json
 
 @pytest.fixture
 def sample_transactions():
@@ -9,7 +10,8 @@ def sample_transactions():
     ]
 
 def test_simple_search(sample_transactions):
-    result = SearchService.simple_search('Покупка', sample_transactions)
+    result_json = SearchService.simple_search('Покупка', sample_transactions)
+    result = json.loads(result_json)
     assert len(result['results']) == 1
 
 

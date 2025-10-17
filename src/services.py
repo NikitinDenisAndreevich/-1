@@ -1,5 +1,6 @@
 import logging
 import re
+import json
 from typing import Any, Dict, List
 from datetime import datetime
 
@@ -7,11 +8,22 @@ from datetime import datetime
 logger = logging.getLogger(__name__)
 
 
+def _matches_query(transaction: Dict[str, Any], normalized_query: str) -> bool:
+    description = str(transaction.get("description", "")).lower()
+    category = str(transaction.get("category", "")).lower()
+    return normalized_query in description or normalized_query in category
+
+
+def _contains_phone(transaction: Dict[str, Any], phone_pattern: re.Pattern) -> bool:
+    description = str(transaction.get("description", ""))
+    return bool(phone_pattern.search(description))
+
+
 class SearchService:
     """Сервисы поиска по транзакциям."""
 
     @staticmethod
-    def simple_search(query: str, transactions: List[Dict[str, Any]]) -> Dict[str, Any]:
+    def simple_search(query: str, transactions: List[Dict[str, Any]]) -> str:
         """Ищет транзакции, содержащие запрос в описании или категории.
 
         Args:
@@ -19,23 +31,18 @@ class SearchService:
             transactions: Список транзакций.
 
         Returns:
-            Словарь с ключом "results" и списком найденных транзакций.
+            JSON-строка с ключом "results" и списком найденных транзакций.
         """
         logger.info("Запуск простого поиска")
         normalized_query = (query or "").strip().lower()
         if not normalized_query:
-            return {"results": []}
+            return json.dumps({"results": []}, ensure_ascii=False)
 
-        def matches(transaction: Dict[str, Any]) -> bool:
-            description = str(transaction.get("description", "")).lower()
-            category = str(transaction.get("category", "")).lower()
-            return normalized_query in description or normalized_query in category
-
-        results = [t for t in transactions if matches(t)]
-        return {"results": results}
+        results = [t for t in transactions if _matches_query(t, normalized_query)]
+        return json.dumps({"results": results}, ensure_ascii=False)
 
     @staticmethod
-    def phone_search(transactions: List[Dict[str, Any]]) -> Dict[str, Any]:
+    def phone_search(transactions: List[Dict[str, Any]]) -> str:
         """Находит транзакции, содержащие российские мобильные номера в описании.
 
         Поддерживаемые форматы: +7 9XX XXX-XX-XX, +7 9XXXXXXXXX, 8 9XX XXX XX XX и т.п.
@@ -44,7 +51,7 @@ class SearchService:
             transactions: Список транзакций.
 
         Returns:
-            Словарь с ключом "results" и списком найденных транзакций.
+            JSON-строка с ключом "results" и списком найденных транзакций.
         """
         logger.info("Поиск по телефонным номерам")
         phone_pattern = re.compile(
@@ -52,12 +59,8 @@ class SearchService:
             re.UNICODE,
         )
 
-        def contains_phone(transaction: Dict[str, Any]) -> bool:
-            description = str(transaction.get("description", ""))
-            return bool(phone_pattern.search(description))
-
-        results = [t for t in transactions if contains_phone(t)]
-        return {"results": results}
+        results = [t for t in transactions if _contains_phone(t, phone_pattern)]
+        return json.dumps({"results": results}, ensure_ascii=False)
 
 
 def investment_bank(month: str, transactions: List[Dict[str, Any]], limit: int) -> float:

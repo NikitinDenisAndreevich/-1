@@ -11,12 +11,24 @@ from .utils import (
     get_period,
     read_user_settings,
 )
-
-
 logger = logging.getLogger(__name__)
 
 
-def events_view(date_str: str, scope: str = "M", df: Optional[pd.DataFrame] = None) -> Dict[str, Any]:
+def _build_top_categories(df_part: pd.DataFrame, top_n: int = 7) -> List[Dict[str, Any]]:
+    if df_part.empty:
+        return []
+    agg = (
+        df_part.groupby("category", as_index=False)["amount"].sum().sort_values("amount", ascending=False)
+    )
+    head = agg.head(top_n)
+    tail_sum = agg["amount"].iloc[top_n:].sum()
+    items = [{"category": r["category"], "amount": int(round(r["amount"]))} for _, r in head.iterrows()]
+    if tail_sum > 0:
+        items.append({"category": "Остальное", "amount": int(round(tail_sum))})
+    return items
+
+
+def events_view(date_str: str, scope: str = "M", df: Optional[pd.DataFrame] = None) -> str:
     """Функция страницы «События».
 
     Args:
@@ -25,7 +37,7 @@ def events_view(date_str: str, scope: str = "M", df: Optional[pd.DataFrame] = No
         df: DataFrame транзакций (если None — ошибка).
 
     Returns:
-        JSON-словарь по ТЗ: расходы (total, main, transfers_and_cash), доходы (total, main),
+        JSON-строка по ТЗ: расходы (total, main, transfers_and_cash), доходы (total, main),
         а также курсы валют и цены акций по пользовательским настройкам.
     """
     if df is None:
@@ -45,21 +57,8 @@ def events_view(date_str: str, scope: str = "M", df: Optional[pd.DataFrame] = No
     expenses_df = data[data["amount"] > 0]
     income_df = data[data["amount"] <= 0].assign(amount=lambda x: x["amount"].abs())
 
-    def top_main(df_part: pd.DataFrame, top_n: int = 7) -> List[Dict[str, Any]]:
-        if df_part.empty:
-            return []
-        agg = (
-            df_part.groupby("category", as_index=False)["amount"].sum().sort_values("amount", ascending=False)
-        )
-        head = agg.head(top_n)
-        tail_sum = agg["amount"].iloc[top_n:].sum()
-        items = [{"category": r["category"], "amount": int(round(r["amount"]))} for _, r in head.iterrows()]
-        if tail_sum > 0:
-            items.append({"category": "Остальное", "amount": int(round(tail_sum))})
-        return items
-
     expenses_total = int(round(expenses_df["amount"].sum())) if not expenses_df.empty else 0
-    expenses_main = top_main(expenses_df)
+    expenses_main = _build_top_categories(expenses_df)
     transfers_categories = ["Наличные", "Переводы"]
     transfers_and_cash = (
         expenses_df[expenses_df["category"].isin(transfers_categories)]
@@ -72,13 +71,13 @@ def events_view(date_str: str, scope: str = "M", df: Optional[pd.DataFrame] = No
     ]
 
     income_total = int(round(income_df["amount"].sum())) if not income_df.empty else 0
-    income_main = top_main(income_df, top_n=7)
+    income_main = _build_top_categories(income_df, top_n=7)
 
     settings = read_user_settings()
     currency_rates = fetch_currency_rates(settings.get("user_currencies", []))
     stock_prices = fetch_stock_prices(settings.get("user_stocks", []))
 
-    return {
+    payload = {
         "expenses": {
             "total_amount": expenses_total,
             "main": expenses_main,
@@ -91,3 +90,5 @@ def events_view(date_str: str, scope: str = "M", df: Optional[pd.DataFrame] = No
         "currency_rates": currency_rates,
         "stock_prices": stock_prices,
     }
+
+    return json.dumps(payload, ensure_ascii=False)
